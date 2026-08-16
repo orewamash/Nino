@@ -12,6 +12,9 @@
 /.gradle/
 /.idea/
 
+# Local editor config
+/.vscode/
+
 # Capstone working docs (not part of the repository)
 /changes.md
 /description.md

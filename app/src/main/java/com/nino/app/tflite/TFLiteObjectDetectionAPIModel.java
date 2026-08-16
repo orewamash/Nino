@@ -30,8 +30,8 @@ import com.nino.app.env.Logger;
 public class TFLiteObjectDetectionAPIModel implements Classifier {
   private static final Logger LOGGER = new Logger();
 
-  // Only return this many results.
-  private static final int NUM_DETECTIONS = 10;
+  // Only return this many results (EfficientDet-Lite0 emits at most 25).
+  private static final int NUM_DETECTIONS = 25;
   // Float model
   private static final float IMAGE_MEAN = 128.0f;
   private static final float IMAGE_STD = 128.0f;
@@ -179,15 +179,17 @@ public class TFLiteObjectDetectionAPIModel implements Classifier {
     tfLite.runForMultipleInputsOutputs(inputArray, outputMap);
     Trace.endSection();
 
-    // Show the best detections.
+    // Show the best detections, capped at the number the model actually emitted.
     // after scaling them back to the input size.
     final ArrayList<Recognition> recognitions = new ArrayList<>(NUM_DETECTIONS);
-    // SSD MobileNet V1 Model assumes class 0 is background class in the label
-    // file and class labels start from 1, while outputClasses correspond to a
-    // class index from 0. Guard the index so a misbehaving model can never
-    // crash the app with an out-of-range label lookup.
+    // The label file has the COCO 91-entry layout where line 0 is the background
+    // placeholder ("???") and lines 1..90 are the real classes. EfficientDet-Lite0
+    // outputs class indices 0..89 over those 90 classes, so a +1 offset maps the
+    // model class id onto the matching label line. Guard the index so a
+    // misbehaving model can never crash the app with an out-of-range label lookup.
     int labelOffset = 1;
-    for (int i = 0; i < NUM_DETECTIONS; ++i) {
+    final int numDetectionsCount = Math.min((int) numDetections[0], NUM_DETECTIONS);
+    for (int i = 0; i < numDetectionsCount; ++i) {
       final RectF detection =
           new RectF(
               outputLocations[0][i][1] * inputSize,
