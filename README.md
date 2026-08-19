@@ -70,6 +70,10 @@ Quantized MobileNet SSD v1, COCO-trained — bundled in `app/src/main/assets/det
 - [ ] Distance calibration to real-world units
 - [ ] Obstacle path planning / safe-direction suggestion
 
+## GitHub Streak
+
+[![GitHub Streak](https://streak-stats.demolab.com?user=orewamash&theme=dark&background=0d1117&hide_border=false&ring=58a6ff&fire=3fb950&currStreakLabel=58a6ff&sideLabels=f4f4f4&currStreakNum=f4f4f4&sideNums=f4f4f4&dates=8b949e)](https://git.io/streak-stats)
+
 ## Contributors
 
 * Madhesh Y
