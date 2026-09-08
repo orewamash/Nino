@@ -22,14 +22,18 @@ public class VoiceNavigator implements TextToSpeech.OnInitListener {
     void onGuidance(String spokenPhrase, NavigationGuidance.Guidance guidance);
   }
 
-  /** Minimum gap (ms) between two normal spoken messages. */
-  private static final long COOLDOWN_MS = 2500L;
+  /** Minimum gap (ms) between two normal spoken messages. Calm, no running commentary. */
+  private static final long COOLDOWN_MS = 4000L;
 
   /** Urgent (very close) messages may interrupt sooner than the normal cooldown. */
-  private static final long URGENT_COOLDOWN_MS = 900L;
+  private static final long URGENT_COOLDOWN_MS = 2000L;
 
-  /** The exact same phrase is not re-announced within this window (avoid nagging). */
-  private static final long REPEAT_SUPPRESS_MS = 8000L;
+  /**
+   * The same situation (object + severity) is not re-announced within this
+   * window, even if its left/right side flickers, so the user gets one
+   * command at a time instead of a stream of chattering directions.
+   */
+  private static final long REPEAT_SUPPRESS_MS = 20000L;
 
   private final OnGuidanceListener listener;
   private TextToSpeech tts;
@@ -38,6 +42,7 @@ public class VoiceNavigator implements TextToSpeech.OnInitListener {
 
   private long lastSpokenTimeMs = 0L;
   private String lastPhrase = "";
+  private String lastSituationKey = "";
 
   public VoiceNavigator(Context context, OnGuidanceListener listener) {
     this.listener = listener;
@@ -79,6 +84,7 @@ public class VoiceNavigator implements TextToSpeech.OnInitListener {
     if (!muted && shouldSpeak(phrase, guidance)) {
       speak(phrase);
       lastPhrase = phrase;
+      lastSituationKey = situationKey(guidance);
       lastSpokenTimeMs = SystemClock.elapsedRealtime();
     }
 
@@ -112,7 +118,8 @@ public class VoiceNavigator implements TextToSpeech.OnInitListener {
   /**
    * Decides whether a new phrase may be spoken:
    *  1. always respect a minimum cooldown (shorter for urgent messages);
-   *  2. do not repeat the exact same phrase for a while unless it turned urgent.
+   *  2. do not repeat the same situation for a while, unless it just turned
+   *     urgent. One clear command at a time, then silence so the user can act.
    */
   private boolean shouldSpeak(String phrase, NavigationGuidance.Guidance guidance) {
     long now = SystemClock.elapsedRealtime();
@@ -124,12 +131,20 @@ public class VoiceNavigator implements TextToSpeech.OnInitListener {
       return false;
     }
 
-    boolean isRepeat = phrase.equals(lastPhrase);
-    if (isRepeat && !isUrgent && elapsed < REPEAT_SUPPRESS_MS) {
+    // Same situation (same object at same severity) is treated as a repeat even
+    // when the driver between two objects flickers left/right, preventing a
+    // chattering stream. Only a new object or an escalation to urgent speaks.
+    boolean sameSituation = situationKey(guidance).equals(lastSituationKey);
+    if (sameSituation && !isUrgent && elapsed < REPEAT_SUPPRESS_MS) {
       return false;
     }
 
     return true;
+  }
+
+  /** Identity of the situation: the object and how urgent it is. */
+  private static String situationKey(NavigationGuidance.Guidance guidance) {
+    return guidance.getTitle() + "|" + guidance.getUrgency();
   }
 
   private void speak(String message) {
