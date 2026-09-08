@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Nino — premium vision-assist HUD for the visually impaired. Live camera, simulated classroom detections, calm spoken guidance, radar scene map." />
+  <title>Nino · sight guide</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="vendor/glasskit/glasskit.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-phase="focus" data-voice="on" data-camera="pending" data-urgency="ahead" data-mode="balanced">
+
+<!--
+  DIRECTION · Nino sight-guide HUD (premium)
+  THESIS Sight is the camera; the HUD is a calm whisper, never a shout. This
+  surface refuses raw debug overlays and constant chatter: it concentrates the
+  whole interface on the single object that matters and says it once, slowly.
+  OWN-WORLD Deep near-black stage under the camera, a refined three-accent
+  system (teal = clear, amber = care, coral = stop), hairline type on softly
+  blurred glass with inner light, radar scene map, mono reserved for data and
+  the spoken-word ticker, authored SVG marks at one stroke weight.
+  STORY A blind student holds a phone in a classroom; the HUD scans, folds the
+  scene into one spoken directive plus a few calm scene-reads, and the radar +
+  banner + boxes confirm it for sighted examiners.
+  FIRST VIEWPORT Full-bleed classroom feed, brand + LIVE + model chips up top,
+  the guidance banner mid-screen with an inline path bar, radar bottom-left,
+  a rose-glass dock of three gestures (voice / read scene / settings) below.
+  FORM Dark premium Operate interface, committed for the assistive app.
+  FINISH unreviewed and undocumented is unfinished; this build ends with the
+  finish review, the verdict, and this mock re-checked at phone and desktop.
+-->
+
+<!-- ============ PHONE PRESENTATION FRAME ============ -->
+<div class="phone-stage">
+  <div class="device-wrap">
+    <div class="device">
+      <span class="phone-island" aria-hidden="true"></span>
+      <span class="phone-btn btn-silence" aria-hidden="true"></span>
+      <span class="phone-btn btn-volup" aria-hidden="true"></span>
+      <span class="phone-btn btn-voldn" aria-hidden="true"></span>
+      <span class="phone-btn btn-power" aria-hidden="true"></span>
+      <div class="phone-screen">
+
+<main class="stage" aria-label="Camera preview">
+  <video id="cam" autoplay muted playsinline aria-hidden="true"></video>
+
+  <!-- Simulated classroom scene (falls back when no camera is available) -->
+  <div class="feed-room" id="feedRoom" aria-hidden="true">
+    <div class="room-wall">
+      <div class="room-board">
+        <i></i><i></i><i></i>
+        <b class="board-marker"></b>
+        <b class="board-marker m2"></b>
+      </div>
+      <div class="room-window"><span class="win-bar bx"></span><span class="win-bar vy"></span></div>
+      <div class="room-fan"><span></span><span></span><span></span></div>
+      <div class="room-door"><span></span></div>
+    </div>
+    <div class="room-floor">
+      <div class="room-desk"></div>
+    </div>
+  </div>
+
+  <div class="feed-vignette" aria-hidden="true"></div>
+  <div class="feed-scan" aria-hidden="true"></div>
+
+  <!-- Intense red edge when something is directly in the way -->
+  <div class="cue-critical" id="cueCritical" aria-hidden="true"></div>
+
+  <div class="zone-grid" id="zoneGrid" aria-hidden="true"></div>
+
+  <!-- Detection boxes -->
+  <div class="detections" id="detections" aria-live="off"></div>
+
+  <!-- Curtain for the top-left so HUD stays legible over bright sky -->
+  <div class="hud-veil" aria-hidden="true"></div>
+
+  <!-- Top HUD -->
+  <header class="hud-top">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M4 16a14 14 0 0 1 24 0" transform="rotate(180 16 16)" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M28 16a14 14 0 0 1-24 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3.1" fill="currentColor"/>
+        <path d="M16 2.5v4M16 25.5v4M29.5 16h-4M6.5 16h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-name">Nino</span>
+        <span class="brand-sub">sight&nbsp;guide</span>
+      </div>
+    </div>
+
+    <div class="chips">
+      <button class="chip chip-scan" id="scanBtn" type="button">
+        <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 3v4M12 17v4M4 12h3M17 12h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+        <span>READ&nbsp;SCENE</span>
+      </button>
+      <div class="chip chip-live"><span class="live-dot"></span>LIVE</div>
+      <div class="chip chip-model">classroom&nbsp;<b>·</b>&nbsp;13</div>
+    </div>
+  </header>
+
+  <!-- Guidance banner -->
+  <section class="guidance" id="guidance" role="status">
+    <div class="guidance-inner glass-card glass-card--glow">
+      <div class="guidance-rail" aria-hidden="true"></div>
+      <div class="guidance-copy">
+        <p class="guidance-phrase" id="guidancePhrase">Scanning the room…</p>
+        <div class="guidance-meta">
+          <span class="gm-zone" id="metaZone">center</span>
+          <span class="pathbar" id="pathbar" aria-hidden="true">
+            <i class="pb-seg" data-zone="left">L</i>
+            <i class="pb-seg" data-zone="center">C</i>
+            <i class="pb-seg" data-zone="right">R</i>
+          </span>
+          <span class="gm-conf" id="metaConf">waiting</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spoken-word ticker: a quiet record of what was said -->
+    <div class="ticker" id="ticker" aria-live="polite">
+      <span class="ticker-label">SAID</span>
+      <ol class="ticker-list" id="tickerList"></ol>
+    </div>
+  </section>
+
+  <!-- Radar scene map -->
+  <div class="radar-wrap" id="radarWrap" title="Scene map · tap to read the room">
+    <canvas class="radar" id="radar" width="248" height="248" aria-hidden="true"></canvas>
+    <div class="radar-center" aria-hidden="true"></div>
+    <span class="radar-label">scene</span>
+  </div>
+
+  <!-- Bottom dock -->
+  <footer class="hud-bottom">
+    <div class="glass-tab-bar-dock">
+      <nav class="glass-tab-bar glass-tab-bar--floating" aria-label="Guidance controls">
+        <button class="glass-tab-bar__item" id="voiceBtn" type="button" aria-pressed="true" aria-label="Toggle voice guidance">
+          <span class="glass-tab-bar__icon">
+            <svg viewBox="0 0 24 24" class="ic ic-voice" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M15.5 8.5a4 4 0 0 1 0 7M18 6a7 7 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <svg viewBox="0 0 24 24" class="ic ic-voice-off" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m3 3 18 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </span>
+          <span class="glass-tab-bar__label">voice</span>
+        </button>
+        <button class="glass-tab-bar__item is-active" id="dockScanBtn" type="button" aria-label="Read the scene">
+          <span class="glass-tab-bar__icon">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 3v4M12 17v4M4 12h3M17 12h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+          </span>
+          <span class="glass-tab-bar__label">scan</span>
+        </button>
+        <button class="glass-tab-bar__item" id="appsBtn" type="button" aria-label="Open apps">
+          <span class="glass-tab-bar__icon">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+          </span>
+          <span class="glass-tab-bar__label">apps</span>
+        </button>
+        <button class="glass-tab-bar__item" id="panelBtn" type="button" aria-label="Guidance settings">
+          <span class="glass-tab-bar__icon">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 7h16M4 17h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="7" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="15" cy="17" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+          </span>
+          <span class="glass-tab-bar__label">settings</span>
+        </button>
+      </nav>
+    </div>
+    <div class="tele-mini">
+      <span class="tm-dot" aria-hidden="true"></span>
+      <span id="fpsVal">00</span> fps · <span id="infVal">—</span> ms
+    </div>
+  </footer>
+
+  <!-- App overlays: find-mode chip, OCR card, describe card -->
+  <div class="find-chip" id="findChip" aria-live="off">
+    <span class="find-chip-label">FINDING</span>
+    <span id="findChipName">—</span>
+    <button class="find-chip-stop" id="findStop" type="button" aria-label="Stop finding">
+      <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="ocr-card" id="ocrCard" aria-hidden="true">
+    <div class="ocr-card-head">
+      <span class="ocr-title">TEXT DETECTED</span>
+      <button class="iconbtn iconbtn-sm" id="ocrClose" type="button" aria-label="Dismiss text">
+        <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="ocr-body" id="ocrBody"></div>
+    <span class="ocr-respeak" id="ocrRespeak" role="button" tabindex="0">respeak</span>
+  </div>
+
+  <div class="desc-card" id="descCard" aria-hidden="true">
+    <div class="desc-skel" id="descSkel" aria-hidden="true"><i></i><i></i><i></i></div>
+    <p class="desc-text" id="descText"></p>
+  </div>
+</main>
+
+<!-- Settings sheet -->
+<aside class="sheet" id="sheet" aria-hidden="true" aria-label="Guidance settings">
+  <div class="sheet-inner">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <header class="sheet-head">
+      <h2>Guidance settings</h2>
+      <button class="iconbtn iconbtn-sm" id="sheetClose" type="button" aria-label="Close settings">
+        <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+
+    <div class="sheet-body">
+      <div class="setting setting-switch">
+        <div>
+          <span class="setting-label">Voice guidance</span>
+          <span class="setting-hint" id="sheetVoiceHint">Speaks the best path aloud</span>
+        </div>
+        <label class="setting-toggle glass-toggle">
+          <input type="checkbox" class="glass-toggle__input" id="sheetVoice" checked />
+          <span class="glass-toggle__track"><span class="glass-toggle__thumb"></span></span>
+          <span class="switch-val" id="sheetVoiceVal">ON</span>
+        </label>
+      </div>
+
+      <div class="setting setting-stack">
+        <div class="setting-head">
+          <span class="setting-label">Speech rate</span>
+          <span class="setting-value" id="rateVal">0.90×</span>
+        </div>
+        <input class="slider glass-range" id="rateSlider" type="range" min="0.6" max="1.2" step="0.05" value="0.9" />
+        <p class="setting-hint">Slow, measured pace for guidance</p>
+      </div>
+
+      <div class="setting setting-stack setting-mode">
+        <div class="setting-head"><span class="setting-label">Guidance mode</span></div>
+        <div class="seg" id="modeSeg" role="radiogroup" aria-label="Guidance mode">
+          <button class="seg-btn is-active" data-mode="balanced" role="radio" aria-checked="true">Balanced</button>
+          <button class="seg-btn" data-mode="minimal" role="radio" aria-checked="false">Minimal</button>
+          <button class="seg-btn" data-mode="assist" role="radio" aria-checked="false">Assist</button>
+        </div>
+        <p class="setting-hint" id="modeHint">Announces the one object that matters, then stays quiet</p>
+      </div>
+
+      <div class="setting setting-row">
+        <div>
+          <span class="setting-label">Inference threads</span>
+          <span class="setting-hint">TFLite CPU workers</span>
+        </div>
+        <div class="stepper">
+          <button class="stepbtn" id="threadMinus" type="button" aria-label="Fewer threads">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+          <span class="step-val" id="threadVal">4</span>
+          <button class="stepbtn" id="threadPlus" type="button" aria-label="More threads">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="setting setting-stack setting-readouts">
+        <div class="setting-head"><span class="setting-label">Live telemetry</span></div>
+        <dl class="telemetry">
+          <div><dt>camera frame</dt><dd id="teleFrame">—</dd></div>
+          <div><dt>detector input</dt><dd>320 × 320</dd></div>
+          <div><dt>inference</dt><dd id="teleInf">—</dd></div>
+          <div><dt>guidance cooldown</dt><dd><em>3.2 s</em> / <em>1.4 s</em> urgent</dd></div>
+          <div><dt>scene reads</dt><dd><em id="teleScene">auto · 30 s</em></dd></div>
+        </dl>
+      </div>
+
+      <div class="setting setting-stack setting-model">
+        <div class="setting-head"><span class="setting-label">Prototype model</span></div>
+        <ul class="classlist" id="classList"></ul>
+        <p class="setting-hint">13 classroom classes · EfficientDet-Lite0 · on-device, offline</p>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- Apps tray -->
+<aside class="sheet" id="appsSheet" aria-hidden="true" aria-label="Apps">
+  <div class="sheet-inner">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <header class="sheet-head">
+      <h2>Apps</h2>
+      <button class="iconbtn iconbtn-sm" id="appsSheetClose" type="button" aria-label="Close apps">
+        <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+    <div class="sheet-body">
+      <p class="tray-hint">On-device vision apps · spoken results, no network</p>
+      <div class="apps-grid" id="appsGrid">
+        <button class="app-tile" data-app="find" type="button">
+          <span class="app-tile-icon">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M11 8.2v1.6M11 12.2v1.6M8.2 11h1.6M12.2 11h1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </span>
+          <span class="app-tile-label">Find</span>
+          <span class="app-tile-sub">locate an object</span>
+        </button>
+        <button class="app-tile" data-app="text" type="button">
+          <span class="app-tile-icon">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M5 6.5h6M5 10h4M14 6.5h5M14 10h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M11 15h2M8 15v3h5v-3M11 18v2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="app-tile-label">Read text</span>
+          <span class="app-tile-sub">reads the board aloud</span>
+        </button>
+        <button class="app-tile" data-app="describe" type="button">
+          <span class="app-tile-icon">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="9" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m4 18 5-5 3 3 3-4 5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="app-tile-label">Describe</span>
+          <span class="app-tile-sub">one-line scene caption</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- App detail -->
+<aside class="sheet appdetail" id="appSheet" aria-hidden="true" aria-label="App">
+  <div class="sheet-inner">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <header class="sheet-head">
+      <button class="iconbtn iconbtn-sm" id="appSheetBack" type="button" aria-label="Back to apps">
+        <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <h2 id="appSheetTitle">App</h2>
+      <button class="iconbtn iconbtn-sm" id="appSheetClose" type="button" aria-label="Close app">
+        <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+    <div class="sheet-body">
+      <div class="app-mode-row">
+        <span class="setting-label">Mode</span>
+        <div class="seg seg-sm" id="appModeSeg" role="radiogroup" aria-label="App mode"></div>
+      </div>
+      <div class="app-body" id="appBody"></div>
+    </div>
+  </div>
+</aside>
+
+<!-- Focus / start screen -->
+<section class="focus" id="focus">
+  <div class="focus-card glass-card glass-card--glow">
+    <svg class="focus-mark" viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M4 16a14 14 0 0 1 24 0" transform="rotate(180 16 16)" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M28 16a14 14 0 0 1-24 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="16" cy="16" r="3.1" fill="currentColor"/>
+      <path d="M16 2.5v4M16 25.5v4M29.5 16h-4M6.5 16h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <h1 class="focus-title glass-title">Nino</h1>
+    <p class="focus-sub">voice-guided sight · classroom prototype</p>
+    <p class="focus-desc glass-card__text">The HUD watches the room, folds everything into the one instruction that matters, and tells you — slowly and once — which way is clear.</p>
+    <button class="btn-primary glass-btn glass-btn--primary" id="beginBtn" type="button">
+      Begin guidance
+      <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="btn-demo glass-btn glass-btn--secondary" id="demoBtn" type="button">Preview demo scene</button>
+    <p class="focus-note">Preview mock · camera stays on this device · simulated classroom detections</p>
+  </div>
+</section>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      </div><!-- /phone-screen -->
+      </div><!-- /device -->
+    </div><!-- /device-wrap -->
+    <p class="device-caption">Nino · sight-guide prototype — live camera or simulated classroom · spoken guidance on-device</p>
+</div><!-- /phone-stage -->
+
+<script src="app.js"></script>
+</body>
+</html>

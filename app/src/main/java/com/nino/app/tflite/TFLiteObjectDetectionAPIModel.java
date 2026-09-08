@@ -56,6 +56,13 @@ public class TFLiteObjectDetectionAPIModel implements Classifier {
   // contains the number of detected boxes
   private float[] numDetections;
 
+  // How many lines into the label file the first real class sits. The bundled
+  // COCO labelmap.txt keeps a "???" background placeholder on line 0, so there
+  // the model's class id 0 maps to label line 1 (offset 1). A model retrained by
+  // the Nino_Trainer notebook exports its classes from offset 0 (line 0 = class 0).
+  // This is detected automatically from the label file so both models work.
+  private int labelOffset;
+
   private ByteBuffer imgData;
 
   private Interpreter tfLite;
@@ -102,6 +109,22 @@ public class TFLiteObjectDetectionAPIModel implements Classifier {
       d.labels.add(line);
     }
     br.close();
+
+    // Decide the label offset from the label file itself. mediapipe exports a
+    // pretend score file with classes starting at line 0; the bundled COCO file
+    // has a "???" background placeholder on line 0 and real classes from line 1.
+    // If the very first non-empty label looks like a background placeholder we
+    // shift by one, otherwise class ids map directly onto label lines (offset 0).
+    d.labelOffset = 0;
+    if (!d.labels.isEmpty()) {
+      String first = d.labels.get(0).trim();
+      if (first.isEmpty()
+          || first.equals("???")
+          || first.toLowerCase().startsWith("background")
+          || first.equals("none_of_the_above")) {
+        d.labelOffset = 1;
+      }
+    }
 
     d.inputSize = inputSize;
 
@@ -182,12 +205,11 @@ public class TFLiteObjectDetectionAPIModel implements Classifier {
     // Show the best detections, capped at the number the model actually emitted.
     // after scaling them back to the input size.
     final ArrayList<Recognition> recognitions = new ArrayList<>(NUM_DETECTIONS);
-    // The label file has the COCO 91-entry layout where line 0 is the background
-    // placeholder ("???") and lines 1..90 are the real classes. EfficientDet-Lite0
-    // outputs class indices 0..89 over those 90 classes, so a +1 offset maps the
-    // model class id onto the matching label line. Guard the index so a
-    // misbehaving model can never crash the app with an out-of-range label lookup.
-    int labelOffset = 1;
+    // The label offset (0 or 1) is determined from the label file in create().
+    // COCO's file keeps a "???" background placeholder on line 0 => offset 1;
+    // the Nino_Trainer retrained model starts its classes at line 0 => offset 0.
+    // Guard the index so a misbehaving model can never crash the app with an
+    // out-of-range label lookup.
     final int numDetectionsCount = Math.min((int) numDetections[0], NUM_DETECTIONS);
     for (int i = 0; i < numDetectionsCount; ++i) {
       final RectF detection =

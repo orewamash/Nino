@@ -52,6 +52,7 @@ public final class NavigationGuidance {
     SPOKEN_LABELS.put("hot dog", "hotdog");
     SPOKEN_LABELS.put("potted plant", "plant");
     SPOKEN_LABELS.put("cell phone", "phone");
+    SPOKEN_LABELS.put("mobile phone", "phone");
     SPOKEN_LABELS.put("dining table", "table");
     SPOKEN_LABELS.put("hair drier", "hair dryer");
     SPOKEN_LABELS.put("tv", "television");
