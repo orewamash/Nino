@@ -430,7 +430,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
       if (loc == null) {
         continue;
       }
-      final float cx = loc.centerX() / (w > 0 ? w : 1f);
+      final float cx = 1f - loc.centerX() / (w > 0 ? w : 1f);
       final float cy = loc.centerY() / (h > 0 ? h : 1f);
       final Guidance g = NavigationGuidance.evaluate(r, w, h);
       blips.add(new Blip(cx, cy, g.getUrgency()));

@@ -84,8 +84,11 @@ public final class NavigationGuidance {
   public static Guidance evaluate(Recognition recognition, float frameWidth, float frameHeight) {
     RectF location = recognition.getLocation();
 
-    // The center of the box decides which horizontal third the object occupies.
-    float centerX = location.centerX();
+    // The camera frame is mirrored relative to the user's own body: an object on
+    // the RIGHT side of the frame is physically on the user's LEFT, and vice
+    // versa. Mirroring the box's X before choosing the zone makes the spoken
+    // phrase, meta row and course rule all describe the user's perspective.
+    float centerX = frameWidth - location.centerX();
     Zone zone;
     if (centerX < frameWidth / 3.0f) {
       zone = Zone.LEFT;

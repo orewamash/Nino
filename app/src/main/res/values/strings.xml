@@ -16,4 +16,19 @@
     <string name="sheet_threads">Threads</string>
     <string name="sheet_voice">Voice</string>
     <string name="sheet_api">API</string>
+
+    <!-- Welcome / guidelines screen -->
+    <string name="welcome_title">Nino</string>
+    <string name="welcome_tagline">harbor beacon · vision navigation for the visually impaired</string>
+    <string name="welcome_heading">ABOUT</string>
+    <string name="welcome_about">Nino watches what is in front of you with the phone camera and speaks safe directions out loud. It is not a medical device and cannot replace a cane or a guide.</string>
+    <string name="welcome_guidelines_heading">HOW TO USE</string>
+    <string name="welcome_guideline_1">Hold the phone steady, camera facing the path ahead of you.</string>
+    <string name="welcome_guideline_2">Walk at a careful pace and let Nino speak as it sees objects.</string>
+    <string name="welcome_guideline_3">Left and right are from your own perspective, not the camera\'s.</string>
+    <string name="welcome_guideline_4">When Nino says stop, stop moving until the path is clear.</string>
+    <string name="welcome_begin">BE G I N</string>
+    <string name="welcome_listening">listening to guidance&#8230;</string>
+    <string name="welcome_speech_guidelines">Nino, vision navigation. Nino watches what is in front of you and speaks safe directions out loud. How to use. One: hold the phone steady with the camera facing the path ahead. Two: walk at a careful pace and let Nino speak as it sees objects. Three: left and right are from your own perspective, not the camera perspective. Four: when Nino says stop, stop moving until the path is clear. Beginning navigation now.</string>
+    <string name="welcome_begin_speech">Beginning navigation.</string>
 </resources>
