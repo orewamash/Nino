@@ -1,25 +1,35 @@
 # Nino · Sight-Guide HUD (UI Mock)
 
-A browser mock of the **Nino** app's new UI — a liquid-glass vision-assist HUD over a live
+A browser mock of the **Nino** app's new UI — a *Harbor Beacon* HUD over a live
 camera feed, with simulated classroom detections and real spoken guidance
 (Web Speech API). Built to preview the redesigned UI on a laptop and to be ported
 into the Android app (`app/src/main/`).
 
-## UI fabric: GlassKit (vendored)
+## UI fabric: bespoke (`styles.css`)
 
-The premium iOS-26 Liquid Glass / visionOS look is **GlassKit**
-(`vendor/glasskit/`, MIT, Jungherz GmbH). It is linked directly — pure CSS, no
-build step — and re-themed for Nino by overriding its design tokens in
-`styles.css` (`--gl-color-primary` → teal, surface/glow/border tokens, blur,
-radius). Adopted components:
+No framework, no UI kit, no build step — the look is an original sheet in
+`styles.css`. The world is a *lighthouse / chart-room*: the guidance card is a
+**light beam** that tightens and sharpens as urgency rises (`beam-lick`
+animation), detections render as equal-weight **buoys** lit by urgency (rank via
+light, not label size), the radar is a **sounding chart**, and the bottom dock is
+a steel console. Custom tokens (sea, fog, water-glass, steel) keyed off
+`--u`, `--beam-w`, `--beam-a` per `body[data-urgency]`.
 
-| Nino element                | GlassKit component                         |
-| --------------------------- | ------------------------------------------ |
-| Guidance banner + start card| `.glass-card` + `.glass-card--glow`        |
-| Bottom dock                 | `.glass-tab-bar--floating` + `.glass-tab-bar-dock` (spotlight active item) |
-| Voice switch                | `.glass-toggle`                             |
-| Speech-rate slider          | `.glass-range`                              |
-| Chips / telemetry pills     | GlassKit surfaces + insets + shadows        |
+Adopted components:
+
+| Nino element                | Component                                 |
+| --------------------------- | ----------------------------------------- |
+| Guidance card + beam        | `.guidance` + `.beam-lick` (state chip `#metaState`: CLEAR / CARE / STOP) |
+| Course rule                 | `#courseRule` `.cr-tick` (3-zone path ticks) |
+| Start card / focus screen   | `.water-card`                              |
+| Bottom dock (console)       | `.console` `.con-btn` (spotlight active item) |
+| Voice switch / rate slider  | `.water-toggle` / `.water-range`           |
+| Detections                  | `.bx` buoys with corner ticks + urgency light |
+| Charts / telemetry pills    | `.chart` / `.telemetry` insets             |
+
+Type: **Archivo** (UI) + **Martian Mono** (data, via Google Fonts).
+Themed browser surfaces (`color-scheme: dark`), phone frame collapses full-bleed
+under 560 px, and `prefers-reduced-motion` is respected.
 
 Keep this mock stateless: no framework, no bundler.
 
@@ -55,13 +65,16 @@ webcam and speech APIs work.)
   `scene — one person, two chairs and desks, boards, clear path ahead`.
 - **Auto scene-reads** every 30 s (14 s in Assist mode) so the room is re-read
   at a walking pace; the radar + banner reconfirm it visually.
-- **Radar scene map** — live top-down blips colored by urgency, with the sweep
-  line marking "still scanning". Empty zones show ✓ in the path bar.
+- **Radar scene map** — live top-down sounding chart: blips colored by urgency
+  with the sweep marking "still scanning". Clear zones show lit ticks in the
+  course rule.
 - **Guidance modes** — *Balanced* (default), *Minimal* (only speaks when your
   path is blocked), *Assist* (more scene-reads for unfamiliar rooms).
-- **Focus lock** — the box that is currently being spoken about is lit brighter
+- **Focus lock** — the buoy that is currently being spoken about is lit brighter
   with a colored token, so sighted viewers always know *which* object you're
   navigating by.
+- **Beam pulse** — the guidance card's beam re-fires (`beam-lick`) whenever
+  Nino speaks, giving a sighted cue that a new phrase was issued.
 - **Spoken-word ticker** — a quiet receipt of the last four things said, with
   timestamps, so guidance history is visible in demos/exams.
 - **Speech rate slider** (0.6–1.2×, default 0.9) for slower, measured speech;
@@ -74,10 +87,10 @@ webcam and speech APIs work.)
 | --------------------------------------- | ---------------------------------------------- |
 | `navigation/NavigationGuidance.java`    | `pickDominant / buildPhrase / zoneWorst / scanScene` |
 | `navigation/VoiceNavigator.java`        | `speak / evaluateGuidance` (3.2 s / 1.4 s / change-only, flush) |
-| `DetectorActivity` guidance banner      | top guidance banner + path bar                 |
-| `MultiBoxTracker` overlay boxes         | `.bx` boxes with corner ticks, urgency color, focus lock |
-| `layout_bottom_sheet.xml` settings      | glass settings sheet                           |
-| 3-zone + urgency logic (left/center/right) | zone meter → path bar + radar blips (cyan/amber/red) |
+| `DetectorActivity` guidance banner      | top guidance card + beam + course rule         |
+| `MultiBoxTracker` overlay boxes         | `.bx` buoys with corner ticks, urgency light, focus lock |
+| `layout_bottom_sheet.xml` settings      | `.water-card` settings sheet                   |
+| 3-zone + urgency logic (left/center/right) | zone meter → course-rule ticks + sounding-chart blips (teal/amber/coral) |
 
 Same thresholds as the app: box height `> 60%` = **very close (stop)**,
 `> 30%` = **close**, thirds of the frame = zones.
@@ -89,7 +102,7 @@ Same thresholds as the app: box height `> 60%` = **very close (stop)**,
   `labelmap.txt` and auto-detects the label offset.
 - The HUD colors/type can be reproduced in Android with layered
   `ConstraintLayout`/`FrameLayout` overlays, a `Canvas`-drawn box view (port
-  `.bx` corner ticks into `MultiBoxTracker.draw`), and a `Drawable`-based glass
-  panel for the settings sheet.
+  `.bx` corner ticks + urgency light into `MultiBoxTracker.draw`), and a
+  `Drawable`-based panel for the settings sheet.
 - Throttling/phrase logic is already implemented in the app; this mock only
   *visualizes* it.

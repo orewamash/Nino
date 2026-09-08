@@ -6,10 +6,12 @@ const els = {
   cam: $("#cam"),
   feedRoom: $("#feedRoom"),
   detections: $("#detections"),
+  guidance: $("#guidance"),
   guidancePhrase: $("#guidancePhrase"),
   metaZone: $("#metaZone"),
+  metaState: $("#metaState"),
   metaConf: $("#metaConf"),
-  pathbar: $("#pathbar"),
+  courseRule: $("#courseRule"),
   tickerList: $("#tickerList"),
   radar: $("#radar"),
   radarCtx: $("#radar").getContext("2d"),
@@ -70,7 +72,7 @@ const SPOKEN = { "Mechanical fan": "fan", "Mobile phone": "phone" };
 
 const PEOPLE = new Set(["Person"]);
 const URGENCY_RANK = { ahead: 1, close: 2, critical: 3 };
-const URGENCY_COLOR = { ahead: "#3ee6ff", close: "#ffb454", critical: "#ff5a4d" };
+const URGENCY_COLOR = { ahead: "#40e0c2", close: "#ffb64b", critical: "#ff5f52" };
 const ZONE_ORDER = ["left", "center", "right"];
 const DIR_WORD = { left: "left", center: "ahead", right: "right" };
 const MODE_HINT = {
@@ -228,11 +230,22 @@ function plainPhrase(p, u) {
   els.body.dataset.urgency = u;
   els.guidancePhrase.textContent = p;
   els.metaZone.textContent = "center";
+  els.metaState.textContent = stateWord(u);
   els.metaConf.textContent = "searching";
-  els.pathbar.querySelectorAll(".pb-seg").forEach((seg) => {
+  els.courseRule.querySelectorAll(".cr-tick").forEach((seg) => {
     seg.classList.remove("is-active");
     seg.classList.add("is-clear");
   });
+}
+
+const STATE_WORD = { ahead: "CLEAR", close: "CARE", critical: "STOP" };
+function stateWord(u) { return STATE_WORD[u] || "CLEAR"; }
+
+function pulseBeam() {
+  const g = els.guidance;
+  g.classList.remove("pulse");
+  void g.offsetWidth;
+  g.classList.add("pulse");
 }
 
 function announceFind(t, force) {
@@ -243,8 +256,9 @@ function announceFind(t, force) {
   els.body.dataset.urgency = t.urgency;
   els.guidancePhrase.textContent = phrase;
   els.metaZone.textContent = z === "center" ? "ahead" : z;
+  els.metaState.textContent = stateWord(t.urgency);
   els.metaConf.textContent = Math.round(t.conf * 100) + "%";
-  els.pathbar.querySelectorAll(".pb-seg").forEach((seg) => {
+  els.courseRule.querySelectorAll(".cr-tick").forEach((seg) => {
     seg.classList.remove("is-clear");
     seg.classList.toggle("is-active", seg.dataset.zone === z);
   });
@@ -254,6 +268,7 @@ function announceFind(t, force) {
   speak(phrase);
   addTicker(phrase, t.urgency);
   state.lastSpokenAt = performance.now();
+  pulseBeam();
 }
 
 function startFind(f) {
@@ -286,7 +301,7 @@ function evaluateGuidance(force) {
   const pops = zoneWorst();
   const clear = clearZones();
 
-  els.pathbar.querySelectorAll(".pb-seg").forEach((seg) => {
+  els.courseRule.querySelectorAll(".cr-tick").forEach((seg) => {
     seg.classList.toggle("is-clear", clear.includes(seg.dataset.zone));
   });
 
@@ -304,6 +319,7 @@ function evaluateGuidance(force) {
     els.body.dataset.urgency = "ahead";
     els.guidancePhrase.textContent = "Room clear";
     els.metaZone.textContent = "center";
+    els.metaState.textContent = "CLEAR";
     els.metaConf.textContent = "nothing near";
     return;
   }
@@ -315,8 +331,9 @@ function evaluateGuidance(force) {
   els.body.dataset.urgency = dom.urgency;
   els.guidancePhrase.textContent = phrase;
   els.metaZone.textContent = z === "center" ? "ahead" : z;
+  els.metaState.textContent = stateWord(dom.urgency);
   els.metaConf.textContent = Math.round(dom.conf * 100) + "%";
-  els.pathbar.querySelectorAll(".pb-seg").forEach((seg) => {
+  els.courseRule.querySelectorAll(".cr-tick").forEach((seg) => {
     seg.classList.toggle("is-active", seg.dataset.zone === z);
   });
 
@@ -348,6 +365,7 @@ function evaluateGuidance(force) {
   state.lastSpokenAt = now;
   state.lastAnnounced = { id: dom.id, urgency: dom.urgency, zone: z };
   els.guidancePhrase.setAttribute("data-lived", String(now));
+  pulseBeam();
 }
 
 function countByCategory() {
@@ -386,6 +404,7 @@ function scanScene() {
   els.metaZone.textContent = dirWord;
   speak(phrase);
   addTicker(phrase, "ahead");
+  pulseBeam();
 }
 
 function stepInference() {
@@ -494,7 +513,7 @@ function renderRadar(time) {
   const sweep = (time / 1000) * 0.9;
   for (let i = 0; i < 3; i++) {
     const a = sweep + (i * Math.PI * 2) / 3;
-    ctx.strokeStyle = `rgba(62,230,255,${i === 0 ? 0.16 : 0.05})`;
+    ctx.strokeStyle = `rgba(64,224,194,${i === 0 ? 0.18 : 0.05})`;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(cx + Math.sin(a) * R, cy - Math.cos(a) * R);
@@ -505,8 +524,8 @@ function renderRadar(time) {
     const ang = (i - 1) * (65 * Math.PI) / 180;
     const lx = cx + Math.sin(ang) * R * 0.82;
     const ly = cy - Math.cos(ang) * R * 0.82;
-    ctx.fillStyle = "rgba(174,188,201,.3)";
-    ctx.font = "500 8px 'IBM Plex Mono', monospace";
+    ctx.fillStyle = "rgba(157,178,192,.35)";
+    ctx.font = "500 8px 'Martian Mono', monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(z[0].toUpperCase(), lx, ly);
@@ -771,7 +790,7 @@ function renderAppBody() {
   } else {
     const run = document.createElement("button");
     run.type = "button";
-    run.className = "glass-btn glass-btn--primary btn-run";
+    run.className = "btn-run";
     run.textContent = state.app === "text" ? "Scan board" : "Describe room";
     run.addEventListener("click", state.app === "text" ? startOcr : startDescribe);
     body.appendChild(run);
