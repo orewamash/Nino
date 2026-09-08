@@ -1,8 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Harbor Beacon palette (mirrors mock/styles.css tokens) -->
+    <color name="sea_deep">#04080E</color>
+    <color name="sea">#08131F</color>
+    <color name="sea_glass">#0C1C2C</color>
+    <color name="fog">#9DB2C0</color>
+    <color name="fog_faint">#5A6B7A</color>
+    <color name="steel">#1B2938</color>
+    <color name="steel_hi">#26374A</color>
+
+    <color name="teal">#40E0C2</color>
+    <color name="amber">#FFB64B</color>
+    <color name="coral">#FF5F52</color>
+
     <color name="colorPrimary">#98999b</color>
     <color name="colorPrimaryDark">#404041</color>
     <color name="colorAccent">#d2d0d1</color>
 
     <color name="semi_transparent">#66000000</color>
+    <color name="beacon_glow">#1A40E0C2</color>
 </resources>

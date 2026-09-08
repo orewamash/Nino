@@ -2,6 +2,7 @@
 
 package com.nino.app;
 
+import android.animation.ValueAnimator;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
@@ -16,19 +17,29 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Size;
 import android.util.TypedValue;
+import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import com.nino.app.customview.OverlayView;
 import com.nino.app.customview.OverlayView.DrawCallback;
+import com.nino.app.customview.SoundingChartView;
+import com.nino.app.customview.SoundingChartView.Blip;
 import com.nino.app.env.BorderedText;
 import com.nino.app.env.ImageUtils;
 import com.nino.app.env.Logger;
 import com.nino.app.navigation.NavigationGuidance;
+import com.nino.app.navigation.NavigationGuidance.Guidance;
+import com.nino.app.navigation.NavigationGuidance.Urgency;
 import com.nino.app.navigation.VoiceNavigator;
 import com.nino.app.tflite.Classifier;
+import com.nino.app.tflite.Classifier.Recognition;
 import com.nino.app.tflite.TFLiteObjectDetectionAPIModel;
 import com.nino.app.tracking.MultiBoxTracker;
 
@@ -76,6 +87,19 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
 
   private TextView guidanceStatusView;
 
+  private View guidanceBeamView;
+  private TextView guidanceMetaView;
+  private TextView guidanceTickerView;
+  private View courseTickLeft, courseTickCenter, courseTickRight;
+  private SoundingChartView soundingChart;
+  private Button dockVoiceButton;
+  private int beamColor = Color.rgb(64, 224, 194);
+  private float beamTargetScale = 0.72f;
+  private String lastCardKey = "";
+
+  // Latest confidences + titles so the scene re-read can summarize what Nino sees.
+  private final LinkedList<Guidance> lastFrameGuidance = new LinkedList<Guidance>();
+
   @Override
   protected void onCreate(final Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -87,20 +111,9 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
               @Override
               public void onGuidance(
                   final String spokenPhrase, final NavigationGuidance.Guidance guidance) {
-                // Mirror the spoken instruction on screen for demo/debugging. This fires on
-                // every frame while a target is in view, so only repost when text would change.
+                // Mirror the spoken instruction on screen: phrase + beam + meta + course rule.
                 runOnUiThread(
-                    () -> {
-                      if (guidanceStatusView != null) {
-                        final String text =
-                            voiceNavigator.isMuted()
-                                ? getString(R.string.guidance_muted)
-                                : spokenPhrase;
-                        if (!text.equals(guidanceStatusView.getText().toString())) {
-                          guidanceStatusView.setText(text);
-                        }
-                      }
-                    });
+                    () -> updateGuidanceCard(spokenPhrase, guidance));
               }
             });
   }
@@ -164,7 +177,39 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
     frameToCropTransform.invert(cropToFrameTransform);
 
     trackingOverlay = (OverlayView) findViewById(R.id.tracking_overlay);
-    guidanceStatusView = findViewById(R.id.guidance_status);
+    guidanceStatusView = findViewById(R.id.guidance_phrase);
+    guidanceBeamView = findViewById(R.id.guidance_beam);
+    guidanceMetaView = findViewById(R.id.guidance_meta);
+    guidanceTickerView = findViewById(R.id.guidance_ticker);
+    courseTickLeft = findViewById(R.id.course_tick_left);
+    courseTickCenter = findViewById(R.id.course_tick_center);
+    courseTickRight = findViewById(R.id.course_tick_right);
+    soundingChart = findViewById(R.id.sounding_chart);
+    dockVoiceButton = findViewById(R.id.dock_voice);
+
+    findViewById(R.id.dock_scan).setOnClickListener(v -> readScene());
+    findViewById(R.id.dock_settings)
+        .setOnClickListener(
+            v -> {
+              BottomSheetBehavior behavior = BottomSheetBehavior.from(findViewById(R.id.bottom_sheet_layout));
+              behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+            });
+    dockVoiceButton.setOnClickListener(v -> toggleVoice());
+    updateVoiceButton();
+
+    // The sweep "still scanning" cue: a quiet, looping rotation of the radar sweep.
+    final ValueAnimator sweep = ValueAnimator.ofFloat(0f, 360f);
+    sweep.setDuration(5200L);
+    sweep.setRepeatCount(ValueAnimator.INFINITE);
+    sweep.setInterpolator(new DecelerateInterpolator());
+    sweep.addUpdateListener(
+        animator -> {
+          if (soundingChart != null) {
+            soundingChart.setSweepAngle((Float) animator.getAnimatedValue());
+          }
+        });
+    sweep.start();
+
     trackingOverlay.addCallback(
         new DrawCallback() {
           @Override
@@ -177,6 +222,220 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
         });
 
     tracker.setFrameConfiguration(previewWidth, previewHeight, sensorOrientation);
+  }
+
+  /** Mirrors one guidance decision onto the beam card: phrase, meta, ticks, beam, radar. */
+  private void updateGuidanceCard(final String spokenPhrase, final Guidance guidance) {
+    if (guidanceStatusView == null || guidance == null) {
+      return;
+    }
+    final String text =
+        voiceNavigator.isMuted() ? getString(R.string.guidance_muted) : spokenPhrase;
+
+    // The detector fires every frame; only re-render the beam pulse/ticker when the
+    // guidance actually changed (mirrors the mock's data-lived re-fire).
+    final String key = text + "|" + stateWord(guidance.getUrgency()) + "|" + zoneWord(guidance.getZone());
+    final boolean changed = !key.equals(lastCardKey);
+    lastCardKey = key;
+
+    guidanceStatusView.setText(text);
+
+    final String zone = zoneWord(guidance.getZone());
+    final String state = stateWord(guidance.getUrgency());
+    final int conf = Math.round(guidance.getConfidence() * 100);
+    guidanceMetaView.setText(
+        zone + " \u00b7 " + state + " \u00b7 " + conf + "%");
+
+    setBeamUrgency(guidance.getUrgency());
+    setCourseTicks(guidance.getZone(), guidance.getUrgency());
+
+    // Focus lock: light the buoy currently being spoken about.
+    if (tracker != null) {
+      tracker.setFocusTitle(guidance.getTitle());
+    }
+
+    if (changed) {
+      pulseBeam();
+      guidanceTickerView.setText(spokenPhrase);
+    }
+  }
+
+  private void setBeamUrgency(final Urgency urgency) {
+    switch (urgency) {
+      case VERY_CLOSE:
+        beamColor = Color.rgb(255, 95, 82);
+        beamTargetScale = 0.46f;
+        break;
+      case CLOSE:
+        beamColor = Color.rgb(255, 182, 75);
+        beamTargetScale = 0.58f;
+        break;
+      default:
+        beamColor = Color.rgb(64, 224, 194);
+        beamTargetScale = 0.72f;
+        break;
+    }
+    if (guidanceBeamView != null) {
+      guidanceBeamView
+          .animate()
+          .scaleX(beamTargetScale)
+          .setDuration(400L)
+          .start();
+      setViewColor(guidanceBeamView, beamColor);
+    }
+  }
+
+  /** One fast scale dip, the "beam lick" fired when Nino speaks. */
+  private void pulseBeam() {
+    if (guidanceBeamView == null) {
+      return;
+    }
+    guidanceBeamView
+        .animate()
+        .scaleY(2.4f)
+        .alpha(0.35f)
+        .setDuration(120L)
+        .withEndAction(
+            () ->
+                guidanceBeamView
+                    .animate()
+                    .scaleY(1f)
+                    .alpha(1f)
+                    .setDuration(360L)
+                    .start())
+        .start();
+  }
+
+  private void setCourseTicks(final NavigationGuidance.Zone zone, final Urgency urgency) {
+    final int idle = R.drawable.cr_tick;
+    final int clear = R.drawable.cr_tick_clear;
+    final int active = R.drawable.cr_tick_active;
+    final View[] ticks = {courseTickLeft, courseTickCenter, courseTickRight};
+    final int urgencyColor =
+        urgency == Urgency.VERY_CLOSE
+            ? Color.rgb(255, 95, 82)
+            : urgency == Urgency.CLOSE ? Color.rgb(255, 182, 75) : Color.rgb(64, 224, 194);
+    final int clearColor = Color.rgb(64, 224, 194);
+    final NavigationGuidance.Zone[] zones = {
+      NavigationGuidance.Zone.LEFT, NavigationGuidance.Zone.CENTER, NavigationGuidance.Zone.RIGHT
+    };
+    for (int i = 0; i < ticks.length; i++) {
+      if (ticks[i] == null) {
+        continue;
+      }
+      final boolean isActive = zone == zones[i];
+      ticks[i].setBackgroundResource(isActive ? active : clear);
+      setViewColor(ticks[i], isActive ? urgencyColor : clearColor);
+    }
+  }
+
+  private static void setViewColor(final View view, final int color) {
+    if (view != null && view.getBackground() != null) {
+      view.getBackground().setTint(color);
+    }
+  }
+
+  private static String zoneWord(final NavigationGuidance.Zone zone) {
+    switch (zone) {
+      case LEFT:
+        return "left";
+      case RIGHT:
+        return "right";
+      default:
+        return "ahead";
+    }
+  }
+
+  private static String stateWord(final Urgency urgency) {
+    switch (urgency) {
+      case VERY_CLOSE:
+        return "STOP";
+      case CLOSE:
+        return "CARE";
+      default:
+        return "CLEAR";
+    }
+  }
+
+  /** Console "scan": a calm spoken summary of what Nino currently sees. */
+  private void readScene() {
+    final String summary = summarizeScene();
+    if (summary == null) {
+      return;
+    }
+    voiceNavigator.speakNow(summary);
+    runOnUiThread(
+        () -> {
+          if (guidanceStatusView != null) {
+            guidanceStatusView.setText(summary);
+          }
+          if (guidanceTickerView != null) {
+            guidanceTickerView.setText(summary);
+          }
+        });
+  }
+
+  private String summarizeScene() {
+    synchronized (lastFrameGuidance) {
+      if (lastFrameGuidance.isEmpty()) {
+        return null;
+      }
+      int people = 0;
+      int others = 0;
+      final StringBuilder sb = new StringBuilder("scene, ");
+      for (final Guidance g : lastFrameGuidance) {
+        final String t = g.getTitle() == null ? "object" : g.getTitle();
+        if (t.toLowerCase().contains("person")) {
+          people++;
+        } else {
+          others++;
+        }
+      }
+      if (people > 0) {
+        sb.append(people == 1 ? "one person" : people + " people");
+      }
+      if (people > 0 && others > 0) {
+        sb.append(", ");
+      }
+      if (others > 0) {
+        sb.append(others == 1 ? "one other object" : others + " other objects");
+      }
+      sb.append(", clear path ahead");
+      return sb.toString();
+    }
+  }
+
+  private void toggleVoice() {
+    voiceNavigator.setMuted(!voiceNavigator.isMuted());
+    runOnUiThread(this::updateVoiceButton);
+  }
+
+  private void updateVoiceButton() {
+    if (dockVoiceButton == null) {
+      return;
+    }
+    final boolean muted = voiceNavigator.isMuted();
+    dockVoiceButton.setText(muted ? "muted" : getString(R.string.dock_voice));
+    dockVoiceButton.setTextColor(
+        muted ? Color.rgb(255, 95, 82) : getResources().getColor(R.color.fog, getTheme()));
+  }
+
+  private void updateRadar(final List<Recognition> mapped, final float w, final float h) {
+    if (soundingChart == null || mapped == null) {
+      return;
+    }
+    final List<Blip> blips = new ArrayList<>();
+    for (final Recognition r : mapped) {
+      final RectF loc = r.getLocation();
+      if (loc == null) {
+        continue;
+      }
+      final float cx = loc.centerX() / (w > 0 ? w : 1f);
+      final float cy = loc.centerY() / (h > 0 ? h : 1f);
+      final Guidance g = NavigationGuidance.evaluate(r, w, h);
+      blips.add(new Blip(cx, cy, g.getUrgency()));
+    }
+    soundingChart.setBlips(blips);
   }
 
   @Override
@@ -245,6 +504,17 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
             // Turn the filtered detections into spoken navigation guidance.
             voiceNavigator.onNewDetections(mappedRecognitions, previewWidth, previewHeight);
 
+            synchronized (lastFrameGuidance) {
+              lastFrameGuidance.clear();
+              for (final Recognition r : mappedRecognitions) {
+                if (r.getLocation() == null) {
+                  continue;
+                }
+                lastFrameGuidance.add(
+                    NavigationGuidance.evaluate(r, previewWidth, previewHeight));
+              }
+            }
+
             tracker.trackResults(mappedRecognitions, currTimestamp);
             trackingOverlay.postInvalidate();
 
@@ -254,6 +524,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
                 new Runnable() {
                   @Override
                   public void run() {
+                    updateRadar(mappedRecognitions, previewWidth, previewHeight);
                     showFrameInfo(previewWidth + "x" + previewHeight);
                     showCropInfo(cropCopyBitmap.getWidth() + "x" + cropCopyBitmap.getHeight());
                     showInference(lastProcessingTimeMs + "ms");
@@ -294,6 +565,7 @@ public class DetectorActivity extends CameraActivity implements OnImageAvailable
     voiceNavigator.setMuted(!enabled);
     runOnUiThread(
         () -> {
+          updateVoiceButton();
           if (guidanceStatusView != null) {
             guidanceStatusView.setText(
                 enabled ? getString(R.string.guidance_waiting) : getString(R.string.guidance_muted));

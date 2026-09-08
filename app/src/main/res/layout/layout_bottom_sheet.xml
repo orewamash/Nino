@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?><!-- Nino settings sheet, water-theme restyle of the raw TFLite sheet. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/bottom_sheet_layout"
@@ -8,7 +8,7 @@
     android:background="@drawable/bottom_sheet_bg"
     android:gravity="center_horizontal"
     android:orientation="vertical"
-    android:padding="8dp"
+    android:paddingBottom="16dp"
     app:behavior_hideable="true"
     app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
 
@@ -17,17 +17,32 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingTop="10dp"
-        android:paddingBottom="20dp">
+        android:paddingTop="2dp"
+        android:paddingBottom="4dp">
 
         <ImageView
             android:id="@+id/bottom_sheet_arrow"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:src="@drawable/icn_chevron_up" />
-
+            android:src="@drawable/icn_chevron_up"
+            android:alpha="0.55" />
     </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:letterSpacing="0.2"
+        android:paddingBottom="8dp"
+        android:text="@string/sheet_console"
+        android:textColor="@color/fog_faint"
+        android:textSize="10sp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:background="@color/steel_hi" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -38,18 +53,20 @@
             android:id="@+id/frame"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="Frame"
-            android:textColor="@android:color/black" />
+            android:layout_marginTop="12dp"
+            android:fontFamily="monospace"
+            android:text="@string/sheet_frame"
+            android:textColor="@color/fog" />
 
         <TextView
             android:id="@+id/frame_info"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="12dp"
+            android:fontFamily="monospace"
             android:gravity="right"
-            android:text="640*480"
-            android:textColor="@android:color/black" />
+            android:text="--"
+            android:textColor="@color/fog" />
     </LinearLayout>
 
     <LinearLayout
@@ -62,20 +79,20 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:text="Crop"
-            android:textColor="@android:color/black" />
+            android:fontFamily="monospace"
+            android:text="@string/sheet_crop"
+            android:textColor="@color/fog" />
 
         <TextView
             android:id="@+id/crop_info"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
+            android:fontFamily="monospace"
             android:gravity="right"
-            android:text="640*480"
-            android:textColor="@android:color/black" />
+            android:text="--"
+            android:textColor="@color/fog" />
     </LinearLayout>
-
-
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -87,24 +104,26 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:text="Inference Time"
-            android:textColor="@android:color/black" />
+            android:fontFamily="monospace"
+            android:text="@string/sheet_inference"
+            android:textColor="@color/fog" />
 
         <TextView
             android:id="@+id/inference_info"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
+            android:fontFamily="monospace"
             android:gravity="right"
-            android:text="640*480"
-            android:textColor="@android:color/black" />
+            android:text="--"
+            android:textColor="@color/fog" />
     </LinearLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1px"
-        android:layout_marginTop="10dp"
-        android:background="@android:color/darker_gray" />
+        android:layout_marginTop="12dp"
+        android:background="@color/steel_hi" />
 
     <RelativeLayout
         android:layout_width="match_parent"
@@ -116,8 +135,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:text="Threads"
-            android:textColor="@android:color/black" />
+            android:fontFamily="monospace"
+            android:text="@string/sheet_threads"
+            android:textColor="@color/fog" />
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -132,7 +152,9 @@
                 android:id="@+id/minus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:src="@drawable/ic_baseline_remove" />
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_baseline_remove"
+                android:alpha="0.7" />
 
             <TextView
                 android:id="@+id/threads"
@@ -140,23 +162,26 @@
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="10dp"
                 android:layout_marginRight="10dp"
+                android:fontFamily="monospace"
                 android:text="1"
-                android:textColor="@android:color/black"
+                android:textColor="@android:color/white"
                 android:textSize="14sp" />
 
             <ImageView
                 android:id="@+id/plus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:src="@drawable/ic_baseline_add" />
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_baseline_add"
+                android:alpha="0.7" />
         </LinearLayout>
     </RelativeLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1px"
-        android:layout_marginTop="10dp"
-        android:background="@android:color/darker_gray" />
+        android:layout_marginTop="12dp"
+        android:background="@color/steel_hi" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -166,28 +191,30 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="Voice"
-            android:textColor="@android:color/black" />
+            android:layout_marginTop="12dp"
+            android:text="@string/sheet_voice"
+            android:textColor="@color/fog" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/voice_switch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="12dp"
             android:checked="true"
+            android:fontFamily="monospace"
             android:gravity="right"
+            android:switchPadding="0dp"
             android:text="ON"
-            android:textColor="@android:color/black" />
+            android:textColor="@color/teal"
+            android:textSize="11sp" />
     </LinearLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1px"
-        android:layout_marginTop="10dp"
-        android:background="@android:color/darker_gray" />
+        android:layout_marginTop="12dp"
+        android:background="@color/steel_hi" />
 
-    <!-- TODO(b/112541284): Unhide when new NNAPI delegate is used. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -198,18 +225,18 @@
             android:id="@+id/api"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="API"
-            android:textColor="@android:color/black" />
+            android:layout_marginTop="12dp"
+            android:text="@string/sheet_api"
+            android:textColor="@color/fog" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/api_info_switch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="12dp"
             android:checked="false"
             android:gravity="right"
             android:text="TFLITE"
-            android:textColor="@android:color/black" />
+            android:textColor="@color/fog" />
     </LinearLayout>
 </LinearLayout>

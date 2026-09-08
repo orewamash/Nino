@@ -5,4 +5,15 @@
     <string name="camera_error">This device doesn\'t support Camera2 API.</string>
     <string name="guidance_waiting">Waiting for objects&#8230;</string>
     <string name="guidance_muted">Voice muted</string>
+    <string name="guidance_meta_idle">center &#183; CLEAR &#183; scanning</string>
+    <string name="dock_scan">scan</string>
+    <string name="dock_voice">voice</string>
+    <string name="dock_settings">settings</string>
+    <string name="sheet_console">CONSOLE</string>
+    <string name="sheet_frame">Frame</string>
+    <string name="sheet_crop">Crop</string>
+    <string name="sheet_inference">Inference Time</string>
+    <string name="sheet_threads">Threads</string>
+    <string name="sheet_voice">Voice</string>
+    <string name="sheet_api">API</string>
 </resources>

@@ -1,18 +1,19 @@
 <resources>
 
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+    <!-- Base application theme (Harbor Beacon: dark sea). -->
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
+        <item name="colorAccent">@color/teal</item>
+        <item name="android:windowBackground">@color/sea_deep</item>
     </style>
 
-    <style name="AppThemeToolbar" parent="Theme.AppCompat.Light.NoActionBar">
+    <style name="AppThemeToolbar" parent="Theme.AppCompat.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
+        <item name="colorAccent">@color/teal</item>
         <item name="android:windowContentOverlay">@null</item>
         <item name="elevation">0dp</item>
     </style>

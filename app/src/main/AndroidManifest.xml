@@ -17,6 +17,7 @@
 
         <activity
             android:name=".DetectorActivity"
+            android:exported="true"
             android:label="@string/activity_name_detection"
             android:screenOrientation="portrait">
             <intent-filter>

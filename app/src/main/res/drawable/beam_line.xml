@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The beam itself: a glowing urgency-colored line. Width is driven at
+     runtime by animating android:scaleX in DetectorActivity. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="0"
+        android:centerColor="#40E0C2"
+        android:endColor="#0040E0C2"
+        android:startColor="#0040E0C2" />
+    <size
+        android:height="2dp"
+        android:width="1dp" />
+</shape>

@@ -95,6 +95,16 @@ public class VoiceNavigator implements TextToSpeech.OnInitListener {
     }
   }
 
+  /** Speaks a one-shot message immediately (e.g. the console "scan" scene read). */
+  public synchronized void speakNow(String message) {
+    if (muted || !ttsReady || message == null) {
+      return;
+    }
+    tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "nino-scan");
+    lastSpokenTimeMs = SystemClock.elapsedRealtime();
+    lastPhrase = message;
+  }
+
   public synchronized boolean isMuted() {
     return muted;
   }

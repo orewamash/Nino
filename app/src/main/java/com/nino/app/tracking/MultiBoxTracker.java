@@ -12,42 +12,36 @@ import android.graphics.Paint.Join;
 import android.graphics.Paint.Style;
 import android.graphics.RectF;
 import android.text.TextUtils;
-import android.util.Pair;
 import android.util.TypedValue;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
 import com.nino.app.env.BorderedText;
 import com.nino.app.env.ImageUtils;
 import com.nino.app.env.Logger;
+import com.nino.app.navigation.NavigationGuidance.Urgency;
 import com.nino.app.tflite.Classifier.Recognition;
 
-/** A tracker that handles non-max suppression and matches existing objects to new detections. */
+/**
+ * A tracker that handles non-max suppression and matches existing objects to new detections.
+ * Draws detections as Harbor Beacon buoys: corner ticks + an urgency light, no heavy box.
+ */
 public class MultiBoxTracker {
-  private static final float TEXT_SIZE_DIP = 18;
+  private static final float TEXT_SIZE_DIP = 14;
   private static final float MIN_SIZE = 16.0f;
-  private static final int[] COLORS = {
-    Color.BLUE,
-    Color.RED,
-    Color.GREEN,
-    Color.YELLOW,
-    Color.CYAN,
-    Color.MAGENTA,
-    Color.WHITE,
-    Color.parseColor("#55FF55"),
-    Color.parseColor("#FFA500"),
-    Color.parseColor("#FF8888"),
-    Color.parseColor("#AAAAFF"),
-    Color.parseColor("#FFFFAA"),
-    Color.parseColor("#55AAAA"),
-    Color.parseColor("#AA33AA"),
-    Color.parseColor("#0D0068")
-  };
-  final List<Pair<Float, RectF>> screenRects = new LinkedList<Pair<Float, RectF>>();
+  private static final int TEAL = Color.rgb(64, 224, 194);
+  private static final int AMBER = Color.rgb(255, 182, 75);
+  private static final int CORAL = Color.rgb(255, 95, 82);
+
+  // Same thresholds as NavigationGuidance: box height fraction -> urgency.
+  private static final float VERY_CLOSE_HEIGHT_FRACTION = 0.60f;
+  private static final float CLOSE_HEIGHT_FRACTION = 0.30f;
+
+  final List<RectF> screenRects = new LinkedList<RectF>();
   private final Logger logger = new Logger();
-  private final Queue<Integer> availableColors = new LinkedList<Integer>();
   private final List<TrackedRecognition> trackedObjects = new LinkedList<TrackedRecognition>();
   private final Paint boxPaint = new Paint();
+  private final Paint focusPaint = new Paint();
+  private final Paint tokenPaint = new Paint();
   private final float textSizePx;
   private final BorderedText borderedText;
   private Matrix frameToCanvasMatrix;
@@ -55,17 +49,20 @@ public class MultiBoxTracker {
   private int frameHeight;
   private int sensorOrientation;
 
-  public MultiBoxTracker(final Context context) {
-    for (final int color : COLORS) {
-      availableColors.add(color);
-    }
+  /** Title of the buoy currently being spoken about, if any. */
+  private String focusTitle;
 
-    boxPaint.setColor(Color.RED);
-    boxPaint.setStyle(Style.STROKE);
-    boxPaint.setStrokeWidth(10.0f);
+  public MultiBoxTracker(final Context context) {
+    boxPaint.setStrokeWidth(3.0f);
     boxPaint.setStrokeCap(Cap.ROUND);
     boxPaint.setStrokeJoin(Join.ROUND);
-    boxPaint.setStrokeMiter(100);
+
+    focusPaint.setStrokeWidth(5.0f);
+    focusPaint.setStrokeCap(Cap.ROUND);
+    focusPaint.setStrokeJoin(Join.ROUND);
+
+    tokenPaint.setStyle(Style.FILL);
+    tokenPaint.setAntiAlias(true);
 
     textSizePx =
         TypedValue.applyDimension(
@@ -80,6 +77,11 @@ public class MultiBoxTracker {
     this.sensorOrientation = sensorOrientation;
   }
 
+  /** Marks the buoy that is currently being spoken about for a brighter render. */
+  public synchronized void setFocusTitle(final String title) {
+    focusTitle = title;
+  }
+
   public synchronized void drawDebug(final Canvas canvas) {
     final Paint textPaint = new Paint();
     textPaint.setColor(Color.WHITE);
@@ -90,11 +92,9 @@ public class MultiBoxTracker {
     boxPaint.setAlpha(200);
     boxPaint.setStyle(Style.STROKE);
 
-    for (final Pair<Float, RectF> detection : screenRects) {
-      final RectF rect = detection.second;
+    for (final RectF rect : screenRects) {
       canvas.drawRect(rect, boxPaint);
-      canvas.drawText("" + detection.first, rect.left, rect.top, textPaint);
-      borderedText.drawText(canvas, rect.centerX(), rect.centerY(), "" + detection.first);
+      canvas.drawText("rect", rect.left, rect.top, textPaint);
     }
   }
 
@@ -121,28 +121,79 @@ public class MultiBoxTracker {
             (int) (multiplier * (rotated ? frameWidth : frameHeight)),
             sensorOrientation,
             false);
+
     for (final TrackedRecognition recognition : trackedObjects) {
       final RectF trackedPos = new RectF(recognition.location);
-
       getFrameToCanvasMatrix().mapRect(trackedPos);
-      boxPaint.setColor(recognition.color);
 
-      float cornerSize = Math.min(trackedPos.width(), trackedPos.height()) / 8.0f;
-      canvas.drawRoundRect(trackedPos, cornerSize, cornerSize, boxPaint);
+      final Urgency urgency = urgencyOf(recognition.heightFraction);
+      final int color = urgencyColor(urgency);
+      final boolean focused = recognition.title != null && recognition.title.equals(focusTitle);
+
+      drawBuoy(canvas, trackedPos, color, focused);
 
       final String labelString =
           !TextUtils.isEmpty(recognition.title)
-              ? String.format("%s %.2f", recognition.title, (100 * recognition.detectionConfidence))
-              : String.format("%.2f", (100 * recognition.detectionConfidence));
-      //            borderedText.drawText(canvas, trackedPos.left + cornerSize, trackedPos.top,
-      // labelString);
-      borderedText.drawText(
-          canvas, trackedPos.left + cornerSize, trackedPos.top, labelString + "%", boxPaint);
+              ? String.format("%s %.0f%%", recognition.title, (100 * recognition.detectionConfidence))
+              : String.format("%.0f%%", (100 * recognition.detectionConfidence));
+      borderedText.setInteriorColor(color);
+      borderedText.drawText(canvas, trackedPos.left, trackedPos.bottom + 2.0f, labelString);
+    }
+  }
+
+  /** Corner bracket ticks + an urgency dot, a buoy rather than a box. */
+  private void drawBuoy(final Canvas canvas, final RectF r, final int color, final boolean focused) {
+    final float t = Math.min(r.width(), r.height()) / 7.0f;
+    boxPaint.setColor(color);
+    boxPaint.setStyle(Style.STROKE);
+    boxPaint.setAlpha(focused ? 255 : 190);
+    canvas.drawLine(r.left, r.top + t, r.left, r.top, boxPaint);
+    canvas.drawLine(r.left, r.top, r.left + t, r.top, boxPaint);
+    canvas.drawLine(r.right - t, r.top, r.right, r.top, boxPaint);
+    canvas.drawLine(r.right, r.top, r.right, r.top + t, boxPaint);
+    canvas.drawLine(r.right, r.bottom - t, r.right, r.bottom, boxPaint);
+    canvas.drawLine(r.right, r.bottom, r.right - t, r.bottom, boxPaint);
+    canvas.drawLine(r.left + t, r.bottom, r.left, r.bottom, boxPaint);
+    canvas.drawLine(r.left, r.bottom, r.left, r.bottom - t, boxPaint);
+
+    // Focus lock: a bright ring + token so sighted viewers know which buoy Nino is speaking about.
+    if (focused) {
+      focusPaint.setColor(color);
+      focusPaint.setAlpha(200);
+      canvas.drawRoundRect(r, 6.0f, 6.0f, focusPaint);
+      tokenPaint.setColor(color);
+      canvas.drawCircle(r.centerX(), r.top, 5.0f, tokenPaint);
+    } else {
+      // Urgency light at the top-center of the buoy.
+      tokenPaint.setColor(color);
+      tokenPaint.setAlpha(140);
+      canvas.drawCircle(r.centerX(), r.top, 3.0f, tokenPaint);
+    }
+  }
+
+  private static Urgency urgencyOf(final float heightFraction) {
+    if (heightFraction > VERY_CLOSE_HEIGHT_FRACTION) {
+      return Urgency.VERY_CLOSE;
+    }
+    if (heightFraction > CLOSE_HEIGHT_FRACTION) {
+      return Urgency.CLOSE;
+    }
+    return Urgency.AHEAD;
+  }
+
+  private static int urgencyColor(final Urgency urgency) {
+    switch (urgency) {
+      case VERY_CLOSE:
+        return CORAL;
+      case CLOSE:
+        return AMBER;
+      default:
+        return TEAL;
     }
   }
 
   private void processResults(final List<Recognition> results) {
-    final List<Pair<Float, Recognition>> rectsToTrack = new LinkedList<Pair<Float, Recognition>>();
+    final List<Recognition> rectsToTrack = new LinkedList<Recognition>();
 
     // The frame-to-canvas matrix is only built on the first draw() call. If a
     // trackResults() arrives first (e.g. first frame), bail out gracefully
@@ -163,17 +214,15 @@ public class MultiBoxTracker {
       final RectF detectionScreenRect = new RectF();
       rgbFrameToScreen.mapRect(detectionScreenRect, detectionFrameRect);
 
-      logger.v(
-          "Result! Frame: " + result.getLocation() + " mapped to screen:" + detectionScreenRect);
-
-      screenRects.add(new Pair<Float, RectF>(result.getConfidence(), detectionScreenRect));
+      screenRects.add(detectionScreenRect);
 
       if (detectionFrameRect.width() < MIN_SIZE || detectionFrameRect.height() < MIN_SIZE) {
         logger.w("Degenerate rectangle! " + detectionFrameRect);
         continue;
       }
 
-      rectsToTrack.add(new Pair<Float, Recognition>(result.getConfidence(), result));
+      result.setLocation(detectionScreenRect);
+      rectsToTrack.add(result);
     }
 
     trackedObjects.clear();
@@ -182,24 +231,26 @@ public class MultiBoxTracker {
       return;
     }
 
-    for (final Pair<Float, Recognition> potential : rectsToTrack) {
-      final TrackedRecognition trackedRecognition = new TrackedRecognition();
-      trackedRecognition.detectionConfidence = potential.first;
-      trackedRecognition.location = new RectF(potential.second.getLocation());
-      trackedRecognition.title = potential.second.getTitle();
-      trackedRecognition.color = COLORS[trackedObjects.size()];
-      trackedObjects.add(trackedRecognition);
-
-      if (trackedObjects.size() >= COLORS.length) {
-        break;
+    for (final Recognition result : rectsToTrack) {
+      final RectF loc = result.getLocation();
+      if (loc == null) {
+        continue;
       }
+      final TrackedRecognition trackedRecognition = new TrackedRecognition();
+      trackedRecognition.detectionConfidence =
+          result.getConfidence() != null ? result.getConfidence() : 0.0f;
+      trackedRecognition.location = new RectF(loc);
+      trackedRecognition.title = result.getTitle();
+      trackedRecognition.heightFraction =
+          frameHeight > 0 ? loc.height() / (float) frameHeight : 0.0f;
+      trackedObjects.add(trackedRecognition);
     }
   }
 
   private static class TrackedRecognition {
     RectF location;
     float detectionConfidence;
-    int color;
     String title;
+    float heightFraction;
   }
 }
